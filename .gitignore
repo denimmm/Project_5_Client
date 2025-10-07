@@ -1,0 +1,13 @@
+# binfolders
+bin/
+obj/
+out/
+[Aa]pp_Data/
+[Bb]uild/
+
+
+# visual studio
+.vs/
+*.rsuser
+*.user
+appsettings.Development.json
