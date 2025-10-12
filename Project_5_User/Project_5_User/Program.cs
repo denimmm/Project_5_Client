@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Writers;
 using System.Reflection.Metadata.Ecma335;
@@ -42,10 +43,10 @@ bool verifyAuth(String? auth_header)
 
 
 //allows the user to request a ride and receive an offer. offer must be confirmed
-// /api/requestRide
-////input: POST { "userID": "u12345", "pickupLocation": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
-////output: { "rideID" : "01242", "distance" : "14.58", "durationMinutes" : "1.86", "fare" : "29.04" }
-app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
+// /api/create_new_trip
+////input: POST { "userID": "u12345", "pickup_address": "Conestoga College, Waterloo, ON", "destination_address": "Conestoga Mall, Waterloo, ON", "car_type" : "XL", "pet_friendly" : "true"}
+////output: { "rideID" : "01242", "distanceKm" : "14.58", "fare" : "29.04", "durationMinutes" : "1.86", "driver_name" : "Matthew", "license_plate" : "KJVM 719", "car_model" : "Biege Chevy Malibu"}
+app.MapPost("/create_new_trip", (RideRequest request, HttpContext context) =>
 {
     //authenticate
     //verify the user's authentication token
@@ -54,13 +55,19 @@ app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
     //verifyAuth(authHeader);
 
 
-    //check for an available driver
-
+    //get ride id from auth /create_new_trip
+    int rideID = 123142;
 
     //get estimate from /api/estimate 
-    ///input : { "pickupAddress": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
-    ///output : { "distanceKm": 14.58, "durationMinutes": 18.6, "fare": 29.04, "polyline": "..." }
-    
+    ///input : { "pickup_addr": "Conestoga College, Waterloo, ON", "dest_addr": "Conestoga Mall, Waterloo, ON" }
+    ///output : { "distanceKm": 14.58, "fare": 29.04, "durationMinutes": 18.6}
+    var navInput = new
+    {
+        pickup_addr = request.pickup_address,
+        dest_addr = request.destination_address
+    };
+
+
     //placeholder info
     var navOutput = new
     {
@@ -70,33 +77,45 @@ app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
         polyline = "..."
     };
 
-    //generate ride id entry with userid, driverid, distance, fare, duration, and time of entry and status = unconfirmed
-    int rideID = 1234521;
 
+    //check for an available driver
+    //POST /api.driver.com/api/DriverManager/RequestDriver?ride_id=2352
+
+
+    var driverOutput = new
+    {
+        driver_name = "John",
+        license_plate = "KJVM 719",
+        car_model = "Biege Chevy Malibu"
+    };
 
     //return ride offer for confirmation
 
     var rideOffer = new
     {
         rideID = rideID,
-        distance = navOutput.distanceKm,
-        duration = navOutput.durationMinutes,
-        fare = navOutput.fare
+        distanceKm = navOutput.distanceKm,
+        fare = navOutput.fare,
+        durationMinutes = navOutput.durationMinutes,
+        driver_name = driverOutput.driver_name,
+        license_plate = driverOutput.license_plate,
+        car_model = driverOutput.car_model,
+
     };
 
     return Results.Json(rideOffer);
 
 })
-.WithName("requestRide")
+.WithName("create_new_trip")
 .WithOpenApi();
 
 
 //confirms the ride for the user, activates payment, and dispatches a driver
-// /api/confirmRide
+// /api/confirm_trip
 ////input: { "userID" : "u12345", "rideID" : "01242", "confirm_ride" : "true" }
 ////output: { "rideID" : "12345", "driver_name" : "John", "ETA" : "17:40", "payment_successful" : "true" }
 
-app.MapPost("/confirmRide", (RideConfirmation confirmation, HttpContext context) =>
+app.MapPost("/confirm_trip", (HttpContext context, int userID, bool trip_confirmed) =>
 {
     //authenticate
     var authHeader = context.Request.Headers["Authorization"].ToString();
@@ -104,34 +123,42 @@ app.MapPost("/confirmRide", (RideConfirmation confirmation, HttpContext context)
 
 
     //activate payment with payment module
-
-    //update ride table entry
-
-    //dispatch driver with driver module
-
-    //update ridetable entry
-
-    //return details of ride
-    var rideDetails = new
+    if (trip_confirmed)
     {
-        rideID = confirmation.rideID,
-        driverName = "John",
-        vehicle = "Biege Chevy Malibu",
-        licensePlate = "KJVM 719"
+        //confirm payment in ride table entry
+        //start the ride
 
-    };
+        //payment failed
+        if (false)
+        {
+            return Results.Problem(
+                "Payment could not be processed.",
+                statusCode: 402
+            );
 
-    return Results.Json(rideDetails);
+        }
+    }
+    else
+    {
+        //cancel the ride
+        return Results.Ok();
+    }
+
+
+
+
+
+    return Results.Accepted();
 
 })
-.WithName("confirmRide")
+.WithName("confirm_trip")
 .WithOpenApi();
 
 //returns the location of the user's driver
 // /api/driverLocation
 ////input: driverlocation?userID=12345&rideID=12312421
 ////output: {  "longitude" : "12.1243", "latitude" : "14.2323" }
-app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
+app.MapGet("/driver_location", (HttpContext context, int userID) =>
 {
 
     //verify the user's authentication token
@@ -167,7 +194,7 @@ app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
 // /finishRide
 ////input: { UserID = 123324, RideID = 32492359, RideCompleted = true, Rating = 5 }
 ////output: 202 accepted
-app.MapPost("/finishRide", (finishRide request, HttpContext context) =>
+app.MapPost("/finish_ride", (finishRide request, HttpContext context) =>
 {
     //authenticate
     //verify the user's authentication token
@@ -193,14 +220,10 @@ app.Run();
 
 public record RideRequest(
     int userID,
-    string pickupLocation,
-    string destinationAddress
-);
-
-public record RideConfirmation(
-    int userID,
-    int rideID,
-    bool confirmRide
+    string pickup_address,
+    string destination_address,
+    string car_type,
+    bool pet_friendly
 );
 
 public record finishRide(
