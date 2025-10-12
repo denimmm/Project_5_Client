@@ -41,6 +41,7 @@ bool verifyAuth(String? auth_header)
 
 
 
+//allows the user to request a ride and receive an offer. offer must be confirmed
 // /api/requestRide
 ////input: POST { "userID": "u12345", "pickupLocation": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
 ////output: { "rideID" : "01242", "distance" : "14.58", "durationMinutes" : "1.86", "fare" : "29.04" }
@@ -52,12 +53,15 @@ app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
 
     //verifyAuth(authHeader);
 
+
+    //check for an available driver
+
+
     //get estimate from /api/estimate 
     ///input : { "pickupAddress": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
     ///output : { "distanceKm": 14.58, "durationMinutes": 18.6, "fare": 29.04, "polyline": "..." }
     
-    //send off http request to estimate
-
+    //placeholder info
     var navOutput = new
     {
         distanceKm = 14.58,
@@ -82,13 +86,51 @@ app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
 
     return Results.Json(rideOffer);
 
-}).WithName("requestRide")
+})
+.WithName("requestRide")
 .WithOpenApi();
 
 
+//confirms the ride for the user, activates payment, and dispatches a driver
+// /api/confirmRide
+////input: { "userID" : "u12345", "rideID" : "01242", "confirm_ride" : "true" }
+////output: { "rideID" : "12345", "driver_name" : "John", "ETA" : "17:40", "payment_successful" : "true" }
+
+app.MapPost("/confirmRide", (RideConfirmation confirmation, HttpContext context) =>
+{
+    //authenticate
+    var authHeader = context.Request.Headers["Authorization"].ToString();
+    //verifyAuth(authHeader);
+
+
+    //activate payment with payment module
+
+    //update ride table entry
+
+    //dispatch driver with driver module
+
+    //update ridetable entry
+
+    //return details of ride
+    var rideDetails = new
+    {
+        rideID = confirmation.rideID,
+        driverName = "John",
+        vehicle = "Biege Chevy Malibu",
+        licensePlate = "KJVM 719"
+
+    };
+
+    return Results.Json(rideDetails);
+
+})
+.WithName("confirmRide")
+.WithOpenApi();
 
 //returns the location of the user's driver
-//ie /driverlocation?userID=12345&rideID=12312421
+// /api/driverLocation
+////input: driverlocation?userID=12345&rideID=12312421
+////output: {  "longitude" : "12.1243", "latitude" : "14.2323" }
 app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
 {
 
@@ -121,8 +163,7 @@ app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
 .WithName("GetDriverLocation")
 .WithOpenApi();
 
-    
-    
+
 
 app.Run();
 
@@ -130,5 +171,11 @@ public record RideRequest(
     int userID,
     string pickupLocation,
     string destinationAddress
+);
+
+public record RideConfirmation(
+    int userID,
+    int rideID,
+    bool confirmRide
 );
 
