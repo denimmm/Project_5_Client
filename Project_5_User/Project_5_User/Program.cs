@@ -163,7 +163,31 @@ app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
 .WithName("GetDriverLocation")
 .WithOpenApi();
 
+//finish the ride and rate the driver
+// /finishRide
+////input: { UserID = 123324, RideID = 32492359, RideCompleted = true, Rating = 5 }
+////output: 202 accepted
+app.MapPost("/finishRide", (finishRide request, HttpContext context) =>
+{
+    //authenticate
+    //verify the user's authentication token
+    var authHeader = context.Request.Headers["Authorization"].ToString();
 
+    //verifyAuth(authHeader);
+
+    //make sure rating is between 1 - 5
+    if (request.rating < 1 || request.rating > 5)
+        return Results.BadRequest(new {error = "rating must be between 1 and 5"});
+
+
+    //update table for end time and driver rating (likely sending rating to the driver module)
+
+
+    //return 202 ok
+    return Results.Accepted();
+})
+.WithName("finishRide")
+.WithOpenApi();
 
 app.Run();
 
@@ -177,5 +201,12 @@ public record RideConfirmation(
     int userID,
     int rideID,
     bool confirmRide
+);
+
+public record finishRide(
+    int userID,
+    int rideID,
+    bool rideCompleted,
+    int rating
 );
 
