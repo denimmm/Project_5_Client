@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Writers;
+using System.Reflection.Metadata.Ecma335;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,38 +20,83 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
 
-app.MapGet("/weatherforecast", () =>
+
+
+//verify the authentication with authentication module
+bool verifyAuth(String? auth_header)
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
+    //make sure string is not empty
+    if (string.IsNullOrEmpty(auth_header))
+        return false;
+
+
+    //send to authentication module for verification
+
+
+    return true;
+
+}
+
+
+
+
+// /api/requestRide
+////input: POST { "userID": "u12345", "pickupLocation": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
+////output: { "rideID" : "01242", "distance" : "14.58", "durationMinutes" : "1.86", "fare" : "29.04" }
+app.MapPost("/requestRide", (RideRequest request, HttpContext context) =>
+{
+    //authenticate
+    //verify the user's authentication token
+    var authHeader = context.Request.Headers["Authorization"].ToString();
+
+    //verifyAuth(authHeader);
+
+    //get estimate from /api/estimate 
+    ///input : { "pickupAddress": "Conestoga College, Waterloo, ON", "destinationAddress": "Conestoga Mall, Waterloo, ON" }
+    ///output : { "distanceKm": 14.58, "durationMinutes": 18.6, "fare": 29.04, "polyline": "..." }
+    
+    //send off http request to estimate
+
+    var navOutput = new
+    {
+        distanceKm = 14.58,
+        durationMinutes = 18.6,
+        fare = 29.04,
+        polyline = "..."
+    };
+
+    //generate ride id entry with userid, driverid, distance, fare, duration, and time of entry and status = unconfirmed
+    int rideID = 1234521;
+
+
+    //return ride offer for confirmation
+
+    var rideOffer = new
+    {
+        rideID = rideID,
+        distance = navOutput.distanceKm,
+        duration = navOutput.durationMinutes,
+        fare = navOutput.fare
+    };
+
+    return Results.Json(rideOffer);
+
+}).WithName("requestRide")
 .WithOpenApi();
 
 
+
 //returns the location of the user's driver
-//ie /driverlocation?driver=12345
-app.MapGet("/driverLocation", (HttpContext context, int driverID) =>
+//ie /driverlocation?userID=12345&rideID=12312421
+app.MapGet("/driverLocation", (HttpContext context, int userID, int rideID) =>
 {
 
     //verify the user's authentication token
     var authHeader = context.Request.Headers["Authorization"].ToString();
 
-    //make sure string is not empty
-    if (string.IsNullOrEmpty(authHeader))
-        return Results.Unauthorized();
+    //verifyAuth(authHeader);
+  
 
     //send auth token to auth module for verification. return unauthorized if invalid
 
@@ -65,7 +112,6 @@ app.MapGet("/driverLocation", (HttpContext context, int driverID) =>
     //return driver location
     var location = new
     {
-        driverID = driverID,
         latitude = navigationOutput.latitude,
         longitude = navigationOutput.longitude
     };
@@ -73,14 +119,16 @@ app.MapGet("/driverLocation", (HttpContext context, int driverID) =>
     return Results.Json(location);
 })
 .WithName("GetDriverLocation")
-.WithOpenApi()
-.RequireAuthorization();
+.WithOpenApi();
+
     
     
 
 app.Run();
 
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public record RideRequest(
+    int userID,
+    string pickupLocation,
+    string destinationAddress
+);
+
